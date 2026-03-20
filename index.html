@@ -144,7 +144,7 @@
   </div>
 
   <div class="footer">
-    © JAPAN Fes Influencer Program (build 2026-0006)
+    © JAPAN Fes Influencer Program (build 2026-0007)
   </div>
 
   <script>
@@ -195,26 +195,36 @@
     }
 
     function renderStoreCards(data) {
+      console.log("DEBUG: Raw data from Google:", data);
+
       const container = document.getElementById("store-cards-container");
-      container.innerHTML = ""; // Clear existing
+      container.innerHTML = ""; 
+
+      // Failsafe if data.stores is missing
+      if (!data.stores || !Array.isArray(data.stores)) {
+        console.error("DEBUG: data.stores is missing or invalid!");
+        container.innerHTML = "<p style='color:red;'>Error: Could not load stores list.</p>";
+        return;
+      }
 
       let visitedHtml = "";
       let notVisitedHtml = "";
 
-      // 1. Normalize the visits data to strip any accidental spaces from Google Sheets
       const normalizedVisits = {};
-      for (let key in data.visits) {
-        normalizedVisits[String(key).trim()] = data.visits[key];
+      if (data.visits) {
+        for (let key in data.visits) {
+          // Force both keys and store_ids to uppercase to ensure a perfect match
+          normalizedVisits[String(key).trim().toUpperCase()] = data.visits[key];
+        }
       }
 
       data.stores.forEach(s => {
-        const safeStoreId = String(s.store_id).trim();
+        const safeStoreId = String(s.store_id || "").trim().toUpperCase();
         const v = normalizedVisits[safeStoreId] || {};
         
         const isVisited = !!v.visited_at;
         const postUrl = v.post_url_story || '';
 
-        // Format the date nicely (otherwise Google sends a raw ugly ISO string)
         let displayDate = "";
         if (isVisited) {
           const d = new Date(v.visited_at);
@@ -223,12 +233,11 @@
         
         const cardClass = isVisited ? 'visited' : 'not-visited';
         
-        // NOTE: Your original code had 'display: none' for unvisited stores. 
-        // If you want influencers to see the list BEFORE scanning, change this to 'display: block;'
-        const displayStyle = isVisited ? 'display: block;' : 'display: none;';
+        // DEBUG FIX: We are setting this to 'display: block;' so you can see ALL stores.
+        const displayStyle = 'display: block;'; 
         
         const statusText = isVisited 
-          ? `<span style="color: green;">Visited (Today at ${displayDate})</span>` 
+          ? `<span style="color: green;">Visited (${displayDate})</span>` 
           : `<span style="color: #ff8f00;">Not visited</span>`;
           
         const instaHtml = s.insta_handle ? `<span style="color:#666; font-size:14px; margin-left:6px;">(${s.insta_handle})</span>` : '';
@@ -247,7 +256,6 @@
           </div>
         `;
 
-        // Sorting: Visited goes to the top
         if (isVisited) {
           visitedHtml += cardHtml;
         } else {
