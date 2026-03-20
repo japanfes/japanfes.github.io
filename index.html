@@ -144,7 +144,7 @@
   </div>
 
   <div class="footer">
-    © JAPAN Fes Influencer Program (build 2026-0001)
+    © JAPAN Fes Influencer Program (build 2026-0002)
   </div>
 
   <script>
@@ -170,7 +170,10 @@
       }
 
       try {
-        const response = await fetch(`${GAS_URL}?mode=influencerJson&id=${influencerId}`);
+        const response = await fetch(`${GAS_URL}?mode=influencerJson&id=${influencerId}`, {
+          method: 'GET',
+          redirect: 'follow'
+        });
         const data = await response.json();
         
         // Update Header UI
@@ -244,7 +247,10 @@
       submitBtn.classList.add("disabled");
 
       try {
-        await fetch(`${GAS_URL}?mode=update&id=${influencerId}&store=${storeId}&type=story&url=${encodeURIComponent(urlInput)}`);
+        await fetch(`${GAS_URL}?mode=update&id=${influencerId}&store=${storeId}&type=story&url=${encodeURIComponent(urlInput)}`, {
+          method: 'GET',
+          redirect: 'follow'
+        });
         alert("URL saved successfully!");
       } catch (e) {
         alert("Failed to save URL. Please try again.");
