@@ -1,1 +1,403 @@
-Hello World!
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Influencer Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- ZXing QRライブラリ -->
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #f2f4f7;
+      color: #333;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .header h2 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .progress-bar {
+      width: 100%;
+      background: #e0e0e0;
+      border-radius: 8px;
+      overflow: hidden;
+      height: 10px;
+      margin-top: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4caf50, #66bb6a);
+      width: <?= progressPercent ?>%;
+      transition: width 0.3s ease;
+    }
+
+    .scan-btn {
+      width: 100%;
+      padding: 14px;
+      background: #ff7043;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 20px !important;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .store-card {
+      background: white;
+      padding: 16px;
+      margin-bottom: 16px;
+      border-radius: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      border-left: 6px solid #ddd;
+    }
+
+    .store-card.not-visited {
+      border-left-color: #ffb300;
+      background: #fff8e1;
+    }
+
+    .store-card.visited {
+      border-left-color: #4caf50;
+      background: #f6fff7;
+    }
+
+    .store-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .status {
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-top: 6px;
+      font-size: 14px;
+    }
+
+    button {
+      margin-top: 10px;
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: #007bff;
+      color: white;
+      font-size: 20px;
+      font-weight: 600;
+      transition: background 0.2s ease;
+    }
+
+    button.disabled {
+      background: #bbb;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 12px;
+      color: #777;
+    }
+
+    /* モーダル関連 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .modal {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      width: 90%;
+      max-width: 360px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    #video {
+      width: 100%;
+      border-radius: 8px;
+      background: #000;
+    }
+
+    .modal-close-btn {
+      margin-top: 12px;
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #999;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    button.scan-btn {
+  font-size: 20px !important;
+}
+  </style>
+</head>
+
+<body>
+  <div id="qr-reader" style="display: none;"></div>
+  <div class="header">
+    <h2><?= eventName ?></h2>
+    <div>Influencer ID: <?= influencerId ?></div>
+    <div>Progress: <?= visitedCount ?> / <?= totalStores ?></div>
+
+    <div class="progress-bar">
+      <div class="progress-fill"></div>
+    </div>
+  </div>
+
+  <!-- This opens the native phone camera directly -->
+  <label style="cursor: pointer; padding: 10px; background: blue; color: white;">
+    Scan QR Code
+    <input type="file" accept="image/*" capture="environment" id="qrImageInput" style="display: none;">
+  </label>
+
+  <!-- QRスキャンボタン 
+  <button class="scan-btn" onclick="openScannerModal()">Scan QR test1</button>-->
+
+  <!-- モーダル（シンプル白背景） -->
+  <div id="scannerOverlay" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-title">Scan Store QR</div>
+      <video id="video" playsinline></video>
+      <button class="modal-close-btn" onclick="closeScannerModal()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const influencerId = "<?= influencerId ?>";
+    let codeReader = null;
+    let currentDeviceId = null;
+
+    document.getElementById('qrImageInput').addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const previousText = event.target.labels[0].innerText;
+      event.target.labels[0].innerText = "Scanning...";
+
+      const img = new Image();
+      
+      // Wait for the image to load into memory
+      img.onload = async () => {
+        try {
+          // 1. Try the Native Hardware API (Lightning fast, ignores EXIF/Size issues)
+          if ('BarcodeDetector' in window) {
+            const detector = new BarcodeDetector({ formats: ['qr_code'] });
+            const barcodes = await detector.detect(img);
+            
+            if (barcodes.length > 0) {
+              handleQrResult(barcodes[0].rawValue);
+              return; // Success! Exit early.
+            }
+          } 
+          
+          // 2. Fallback: If BarcodeDetector isn't supported or fails, try html5-qrcode
+          const html5QrCode = new Html5Qrcode("qr-reader");
+          const decodedText = await html5QrCode.scanFile(file, false);
+          handleQrResult(decodedText);
+
+        } catch (err) {
+          console.log("Scan failed: ", err);
+          alert("Could not detect a QR code. Please ensure it is in focus and fills the screen.");
+        } finally {
+          event.target.labels[0].innerText = previousText;
+          event.target.value = ""; 
+          URL.revokeObjectURL(img.src); // Free up memory
+        }
+      };
+
+      // Trigger the onload event
+      img.src = URL.createObjectURL(file);
+    });
+
+    async function openScannerModal() {
+      const overlay = document.getElementById("scannerOverlay");
+      overlay.style.display = "flex";
+
+      if (!codeReader) {
+        codeReader = new ZXing.BrowserMultiFormatReader();
+      }
+
+      try {
+        const videoInputDevices = await codeReader.listVideoInputDevices();
+        if (videoInputDevices.length === 0) {
+          alert("No camera found");
+          closeScannerModal();
+          return;
+        }
+
+        // 背面カメラ優先（なければ最初のデバイス）
+        const backCam = videoInputDevices.find(d =>
+          d.label.toLowerCase().includes("back") ||
+          d.label.toLowerCase().includes("rear")
+        );
+        currentDeviceId = (backCam || videoInputDevices[0]).deviceId;
+
+        await codeReader.decodeFromVideoDevice(
+          currentDeviceId,
+          "video",
+          (result, err) => {
+            if (result) {
+              handleQrResult(result.getText());
+            }
+          }
+        );
+      } catch (e) {
+        alert("Camera error");
+        closeScannerModal();
+      }
+    }
+
+    function closeScannerModal() {
+      const overlay = document.getElementById("scannerOverlay");
+      overlay.style.display = "none";
+      if (codeReader) {
+        codeReader.reset();
+      }
+    }
+
+  function handleQrResult(text) {
+  // ZXing が返す text の余計な空白や改行を除去
+  text = text.trim();
+
+  // 短いQR: "store=STO001"
+  let store = null;
+
+  // "store=STO001" の形式を手動で解析
+  if (text.startsWith("store=")) {
+    store = text.replace("store=", "");
+  }
+
+  if (!store) {
+    alert("Store ID not found in QR");
+    closeScannerModal();
+    return;
+  }
+
+  closeScannerModal();
+    // QRで読み取った store_id と一致するカードを表示
+  const card = document.querySelector(`[data-store-id="${store}"]`);
+  if (card) card.style.display = "block";
+
+  fetch("https://script.google.com/macros/s/AKfycbyiohRpWCOGZ_cdbsRD8UBx1cnI7KdXvIjcsoGLxWMFvkjBJcwWhhDhH6qm-D39-Npb/exec"
+    + `?mode=visit&id=${influencerId}&store=${store}`)
+    .then(() => {
+      alert("Visit recorded!");
+      location.reload();
+    })
+    .catch(() => {
+      alert("Failed to record visit");
+    });
+}
+  </script>
+
+  <? for (var i = 0; i < stores.length; i++) {
+       var s = stores[i];
+       var v = visits[s.store_id] || {};
+       var isVisited = !!v.visited_at;
+  ?>
+    <div class="store-card <?= isVisited ? 'visited' : 'not-visited' ?>"
+     data-store-id="<?= s.store_id ?>"
+     style="<?= isVisited ? '' : 'display:none;' ?>">
+
+  <div class="store-title">
+    <?= s.store_name ?>
+    <? if (s.insta_handle) { ?>
+      <span style="color:#666; font-size:14px; margin-left:6px;">
+        (<?= s.insta_handle ?>)
+      </span>
+    <? } ?>
+  </div>
+
+      <div class="status">
+        <? if (isVisited) { ?>
+          <span style="color: green;">Visited (<?= v.visited_at ?>)</span>
+        <? } else { ?>
+          <span style="color: #ff8f00;">Not visited</span>
+        <? } ?>
+      </div>
+
+     <form method="GET" action="https://script.google.com/macros/s/AKfycbyiohRpWCOGZ_cdbsRD8UBx1cnI7KdXvIjcsoGLxWMFvkjBJcwWhhDhH6qm-D39-Npb/exec">
+  <input type="hidden" name="mode" value="update">
+  <input type="hidden" name="id" value="<?= influencerId ?>">
+  <input type="hidden" name="store" value="<?= s.store_id ?>">
+  <input type="hidden" name="type" value="story">
+
+  <input
+    type="text"
+    name="url"
+    placeholder="Story post URL"
+    value="<?= v.post_url_story || '' ?>"
+    <? if (!isVisited) { ?> disabled <? } ?>
+  >
+
+  <button 
+    type="submit"
+    <? if (!isVisited) { ?> class="disabled" disabled <? } ?>
+  >
+    Submit post URL
+  </button>
+</form>
+    </div>
+  <? } ?>
+
+  <div class="footer">
+    © JAPAN Fes Influencer Program
+  </div>
+<script>
+  // visited を上、not-visited を下に並べ替える
+  window.addEventListener("DOMContentLoaded", () => {
+    const cards = Array.from(document.querySelectorAll(".store-card"));
+    const container = cards[0]?.parentNode;
+    if (!container) return;
+
+    const visited = cards.filter(c => c.classList.contains("visited"));
+    const notVisited = cards.filter(c => c.classList.contains("not-visited"));
+
+    [...visited, ...notVisited].forEach(card => container.appendChild(card));
+  });
+</script>
+</body>
+</html>
