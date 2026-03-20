@@ -144,7 +144,7 @@
   </div>
 
   <div class="footer">
-    © JAPAN Fes Influencer Program (build 2026-0005)
+    © JAPAN Fes Influencer Program (build 2026-0006)
   </div>
 
   <script>
@@ -201,23 +201,45 @@
       let visitedHtml = "";
       let notVisitedHtml = "";
 
+      // 1. Normalize the visits data to strip any accidental spaces from Google Sheets
+      const normalizedVisits = {};
+      for (let key in data.visits) {
+        normalizedVisits[String(key).trim()] = data.visits[key];
+      }
+
       data.stores.forEach(s => {
-        const v = data.visits[s.store_id] || {};
+        const safeStoreId = String(s.store_id).trim();
+        const v = normalizedVisits[safeStoreId] || {};
+        
         const isVisited = !!v.visited_at;
         const postUrl = v.post_url_story || '';
+
+        // Format the date nicely (otherwise Google sends a raw ugly ISO string)
+        let displayDate = "";
+        if (isVisited) {
+          const d = new Date(v.visited_at);
+          displayDate = isNaN(d) ? v.visited_at : d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
         
         const cardClass = isVisited ? 'visited' : 'not-visited';
+        
+        // NOTE: Your original code had 'display: none' for unvisited stores. 
+        // If you want influencers to see the list BEFORE scanning, change this to 'display: block;'
         const displayStyle = isVisited ? 'display: block;' : 'display: none;';
-        const statusText = isVisited ? `<span style="color: green;">Visited (${v.visited_at})</span>` : `<span style="color: #ff8f00;">Not visited</span>`;
+        
+        const statusText = isVisited 
+          ? `<span style="color: green;">Visited (Today at ${displayDate})</span>` 
+          : `<span style="color: #ff8f00;">Not visited</span>`;
+          
         const instaHtml = s.insta_handle ? `<span style="color:#666; font-size:14px; margin-left:6px;">(${s.insta_handle})</span>` : '';
 
         const cardHtml = `
-          <div class="store-card ${cardClass}" data-store-id="${s.store_id}" style="${displayStyle}">
+          <div class="store-card ${cardClass}" data-store-id="${safeStoreId}" style="${displayStyle}">
             <div class="store-title">${s.store_name} ${instaHtml}</div>
             <div class="status">${statusText}</div>
             
-            <form onsubmit="submitPostUrl(event, '${s.store_id}')">
-              <input type="text" id="url-${s.store_id}" placeholder="Story post URL" value="${postUrl}" ${!isVisited ? 'disabled' : ''}>
+            <form onsubmit="submitPostUrl(event, '${safeStoreId}')">
+              <input type="text" id="url-${safeStoreId}" placeholder="Story post URL" value="${postUrl}" ${!isVisited ? 'disabled' : ''}>
               <button type="submit" class="submit-url-btn ${!isVisited ? 'disabled' : ''}" ${!isVisited ? 'disabled' : ''}>
                 Submit post URL
               </button>
@@ -289,12 +311,34 @@
           return;
         }
 
-        // Prioritize back camera
-        const backCam = videoInputDevices.find(d =>
-          d.label?.toLowerCase().includes("back") ||
-          d.label?.toLowerCase().includes("rear")
+        // 1. Filter out annoying Virtual Cameras
+        const validCams = videoInputDevices.filter(d => 
+          !d.label.toLowerCase().includes("virtual") && 
+          !d.label.toLowerCase().includes("obs") &&
+          !d.label.toLowerCase().includes("droidcam") &&
+          !d.label.toLowerCase().includes("snap")
         );
-        currentDeviceId = (backCam || videoInputDevices[0]).deviceId;
+
+        if (validCams.length === 0) {
+           validCams.push(videoInputDevices[0]); // Fallback if ONLY virtual exists
+        }
+
+        // 2. Prioritize back camera for phones
+        const backCam = validCams.find(d =>
+          d.label?.toLowerCase().includes("back") ||
+          d.label?.toLowerCase().includes("rear") ||
+          d.label?.toLowerCase().includes("environment")
+        );
+
+        // 3. Prioritize actual webcams for desktops
+        const frontCam = validCams.find(d => 
+          d.label?.toLowerCase().includes("webcam") || 
+          d.label?.toLowerCase().includes("integrated") ||
+          d.label?.toLowerCase().includes("facetime")
+        );
+
+        // Assign the best available camera
+        currentDeviceId = (backCam || frontCam || validCams[0]).deviceId;
 
         codeReader.decodeFromVideoDevice(
           currentDeviceId,
