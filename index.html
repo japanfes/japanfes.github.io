@@ -144,7 +144,7 @@
   </div>
 
   <div class="footer">
-    © JAPAN Fes Influencer Program (build 2026-0003)
+    © JAPAN Fes Influencer Program (build 2026-0004)
   </div>
 
   <script>
@@ -173,7 +173,6 @@
         const response = await fetch(`${GAS_URL}?mode=influencerJson&id=${influencerId}`, {
           method: 'GET',
           redirect: 'follow',
-          body: JSON.stringify(DATA),
           headers: {
             "Content-Type": "text/plain;charset=utf-8",
           },
@@ -254,7 +253,6 @@
         await fetch(`${GAS_URL}?mode=update&id=${influencerId}&store=${storeId}&type=story&url=${encodeURIComponent(urlInput)}`, {
           method: 'GET',
           redirect: 'follow',
-          body: JSON.stringify(DATA),
           headers: {
             "Content-Type": "text/plain;charset=utf-8",
           },
