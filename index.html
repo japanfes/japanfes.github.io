@@ -5,9 +5,8 @@
   <title>Influencer Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- ZXing QRライブラリ -->
+  <!-- ZXing QR Library -->
   <script src="https://unpkg.com/@zxing/library@latest"></script>
-  <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
     body {
@@ -27,11 +26,7 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
 
-    .header h2 {
-      margin: 0 0 8px 0;
-      font-size: 20px;
-      font-weight: 700;
-    }
+    .header h2 { margin: 0 0 8px 0; font-size: 20px; font-weight: 700; }
 
     .progress-bar {
       width: 100%;
@@ -45,7 +40,7 @@
     .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, #4caf50, #66bb6a);
-      width: <?= progressPercent ?>%;
+      width: 0%; /* Set via JS */
       transition: width 0.3s ease;
     }
 
@@ -59,6 +54,7 @@
       font-size: 20px !important;
       font-weight: 600;
       margin-bottom: 20px;
+      cursor: pointer;
     }
 
     .store-card {
@@ -68,28 +64,14 @@
       border-radius: 14px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.08);
       border-left: 6px solid #ddd;
+      display: none; /* Hidden by default until scanned */
     }
 
-    .store-card.not-visited {
-      border-left-color: #ffb300;
-      background: #fff8e1;
-    }
+    .store-card.not-visited { border-left-color: #ffb300; background: #fff8e1; }
+    .store-card.visited { border-left-color: #4caf50; background: #f6fff7; display: block; }
 
-    .store-card.visited {
-      border-left-color: #4caf50;
-      background: #f6fff7;
-    }
-
-    .store-title {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    .status {
-      font-size: 14px;
-      margin-bottom: 6px;
-    }
+    .store-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .status { font-size: 14px; margin-bottom: 6px; }
 
     input[type="text"] {
       width: 100%;
@@ -98,9 +80,10 @@
       border: 1px solid #ccc;
       margin-top: 6px;
       font-size: 14px;
+      box-sizing: border-box;
     }
 
-    button {
+    button.submit-url-btn {
       margin-top: 10px;
       width: 100%;
       padding: 12px;
@@ -108,95 +91,50 @@
       border-radius: 8px;
       background: #007bff;
       color: white;
-      font-size: 20px;
-      font-weight: 600;
-      transition: background 0.2s ease;
-    }
-
-    button.disabled {
-      background: #bbb;
-    }
-
-    .footer {
-      text-align: center;
-      margin-top: 40px;
-      font-size: 12px;
-      color: #777;
-    }
-
-    /* モーダル関連 */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
-
-    .modal {
-      background: #fff;
-      border-radius: 12px;
-      padding: 16px;
-      width: 90%;
-      max-width: 360px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      text-align: center;
-    }
-
-    .modal-title {
       font-size: 16px;
       font-weight: 600;
-      margin-bottom: 12px;
+      transition: background 0.2s ease;
+      cursor: pointer;
     }
 
-    #video {
-      width: 100%;
-      border-radius: 8px;
-      background: #000;
-    }
+    button.disabled { background: #bbb; cursor: not-allowed; }
 
+    .footer { text-align: center; margin-top: 40px; font-size: 12px; color: #777; }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: none; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .modal {
+      background: #fff; border-radius: 12px; padding: 16px;
+      width: 90%; max-width: 360px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); text-align: center;
+    }
+    .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+    #video { width: 100%; border-radius: 8px; background: #000; }
     .modal-close-btn {
-      margin-top: 12px;
-      width: 100%;
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-      background: #999;
-      color: #fff;
-      font-size: 14px;
-      font-weight: 500;
+      margin-top: 12px; width: 100%; padding: 10px; border: none; border-radius: 8px;
+      background: #999; color: #fff; font-size: 14px; font-weight: 500; cursor: pointer;
     }
-    
-    button.scan-btn {
-  font-size: 20px !important;
-}
   </style>
 </head>
 
 <body>
-  <div id="qr-reader" style="display: none;"></div>
   <div class="header">
-    <h2><?= eventName ?></h2>
-    <div>Influencer ID: <?= influencerId ?></div>
-    <div>Progress: <?= visitedCount ?> / <?= totalStores ?></div>
-
+    <h2 id="event-name">Loading...</h2>
+    <div id="influencer-info">Influencer ID: ---</div>
+    <div id="progress-text">Progress: -- / --</div>
     <div class="progress-bar">
-      <div class="progress-fill"></div>
+      <div id="progress-fill" class="progress-fill"></div>
     </div>
   </div>
 
-  <!-- This opens the native phone camera directly -->
-  <label style="cursor: pointer; padding: 10px; background: blue; color: white;">
-    Scan QR Code
-    <input type="file" accept="image/*" capture="environment" id="qrImageInput" style="display: none;">
-  </label>
+  <button class="scan-btn" onclick="openScannerModal()">Scan Store QR</button>
 
-  <!-- QRスキャンボタン 
-  <button class="scan-btn" onclick="openScannerModal()">Scan QR test1</button>-->
+  <!-- Container for dynamically generated store cards -->
+  <div id="store-cards-container"></div>
 
-  <!-- モーダル（シンプル白背景） -->
+  <!-- Scanner Modal -->
   <div id="scannerOverlay" class="modal-overlay">
     <div class="modal">
       <div class="modal-title">Scan Store QR</div>
@@ -205,53 +143,120 @@
     </div>
   </div>
 
+  <div class="footer">
+    © JAPAN Fes Influencer Program
+  </div>
+
   <script>
-    const influencerId = "<?= influencerId ?>";
+    // ==========================================
+    // CONFIGURATION (Set your GAS URL here)
+    // ==========================================
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxZkvNhvXUkxeOTLN0-qNnXqSxGJ1fipOoklYL9Q5Yr0m33Ci99aBqKMMK9_hEFt8Yw/exec";
+    
+    // Extract ID from URL parameters (e.g. ?id=INF001)
+    const urlParams = new URLSearchParams(window.location.search);
+    const influencerId = urlParams.get('id');
+
     let codeReader = null;
     let currentDeviceId = null;
 
-    document.getElementById('qrImageInput').addEventListener('change', async (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
+    // Load data when page starts
+    window.addEventListener("DOMContentLoaded", loadDashboardData);
 
-      const previousText = event.target.labels[0].innerText;
-      event.target.labels[0].innerText = "Scanning...";
+    async function loadDashboardData() {
+      if (!influencerId) {
+        document.getElementById("event-name").innerText = "Error: No ID found in URL";
+        return;
+      }
 
-      const img = new Image();
-      
-      // Wait for the image to load into memory
-      img.onload = async () => {
-        try {
-          // 1. Try the Native Hardware API (Lightning fast, ignores EXIF/Size issues)
-          if ('BarcodeDetector' in window) {
-            const detector = new BarcodeDetector({ formats: ['qr_code'] });
-            const barcodes = await detector.detect(img);
+      try {
+        const response = await fetch(`${GAS_URL}?mode=influencerJson&id=${influencerId}`);
+        const data = await response.json();
+        
+        // Update Header UI
+        document.getElementById("event-name").innerText = data.eventName;
+        document.getElementById("influencer-info").innerText = `Influencer ID: ${data.influencerId}`;
+        document.getElementById("progress-text").innerText = `Progress: ${data.visitedCount} / ${data.totalStores}`;
+        document.getElementById("progress-fill").style.width = `${data.progressPercent}%`;
+
+        // Render Cards
+        renderStoreCards(data);
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById("event-name").innerText = "Failed to load data";
+      }
+    }
+
+    function renderStoreCards(data) {
+      const container = document.getElementById("store-cards-container");
+      container.innerHTML = ""; // Clear existing
+
+      let visitedHtml = "";
+      let notVisitedHtml = "";
+
+      data.stores.forEach(s => {
+        const v = data.visits[s.store_id] || {};
+        const isVisited = !!v.visited_at;
+        const postUrl = v.post_url_story || '';
+        
+        const cardClass = isVisited ? 'visited' : 'not-visited';
+        const displayStyle = isVisited ? 'display: block;' : 'display: none;';
+        const statusText = isVisited ? `<span style="color: green;">Visited (${v.visited_at})</span>` : `<span style="color: #ff8f00;">Not visited</span>`;
+        const instaHtml = s.insta_handle ? `<span style="color:#666; font-size:14px; margin-left:6px;">(${s.insta_handle})</span>` : '';
+
+        const cardHtml = `
+          <div class="store-card ${cardClass}" data-store-id="${s.store_id}" style="${displayStyle}">
+            <div class="store-title">${s.store_name} ${instaHtml}</div>
+            <div class="status">${statusText}</div>
             
-            if (barcodes.length > 0) {
-              handleQrResult(barcodes[0].rawValue);
-              return; // Success! Exit early.
-            }
-          } 
-          
-          // 2. Fallback: If BarcodeDetector isn't supported or fails, try html5-qrcode
-          const html5QrCode = new Html5Qrcode("qr-reader");
-          const decodedText = await html5QrCode.scanFile(file, false);
-          handleQrResult(decodedText);
+            <form onsubmit="submitPostUrl(event, '${s.store_id}')">
+              <input type="text" id="url-${s.store_id}" placeholder="Story post URL" value="${postUrl}" ${!isVisited ? 'disabled' : ''}>
+              <button type="submit" class="submit-url-btn ${!isVisited ? 'disabled' : ''}" ${!isVisited ? 'disabled' : ''}>
+                Submit post URL
+              </button>
+            </form>
+          </div>
+        `;
 
-        } catch (err) {
-          console.log("Scan failed: ", err);
-          alert("Could not detect a QR code. Please ensure it is in focus and fills the screen.");
-        } finally {
-          event.target.labels[0].innerText = previousText;
-          event.target.value = ""; 
-          URL.revokeObjectURL(img.src); // Free up memory
+        // Sorting: Visited goes to the top
+        if (isVisited) {
+          visitedHtml += cardHtml;
+        } else {
+          notVisitedHtml += cardHtml;
         }
-      };
+      });
 
-      // Trigger the onload event
-      img.src = URL.createObjectURL(file);
-    });
+      container.innerHTML = visitedHtml + notVisitedHtml;
+    }
 
+    // ==========================================
+    // SUBMIT URL (No Page Reload)
+    // ==========================================
+    async function submitPostUrl(event, storeId) {
+      event.preventDefault(); // Prevent page refresh
+      const urlInput = document.getElementById(`url-${storeId}`).value;
+      const submitBtn = event.target.querySelector('button');
+
+      if (!urlInput) { alert("Please enter a URL first."); return; }
+
+      submitBtn.innerText = "Saving...";
+      submitBtn.classList.add("disabled");
+
+      try {
+        await fetch(`${GAS_URL}?mode=update&id=${influencerId}&store=${storeId}&type=story&url=${encodeURIComponent(urlInput)}`);
+        alert("URL saved successfully!");
+      } catch (e) {
+        alert("Failed to save URL. Please try again.");
+      } finally {
+        submitBtn.innerText = "Submit post URL";
+        submitBtn.classList.remove("disabled");
+      }
+    }
+
+    // ==========================================
+    // QR SCANNER (Fixed Live Video)
+    // ==========================================
     async function openScannerModal() {
       const overlay = document.getElementById("scannerOverlay");
       overlay.style.display = "flex";
@@ -261,6 +266,10 @@
       }
 
       try {
+        // Request permission to ensure we can read device labels
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(track => track.stop()); // Release immediately
+
         const videoInputDevices = await codeReader.listVideoInputDevices();
         if (videoInputDevices.length === 0) {
           alert("No camera found");
@@ -268,24 +277,26 @@
           return;
         }
 
-        // 背面カメラ優先（なければ最初のデバイス）
+        // Prioritize back camera
         const backCam = videoInputDevices.find(d =>
-          d.label.toLowerCase().includes("back") ||
-          d.label.toLowerCase().includes("rear")
+          d.label?.toLowerCase().includes("back") ||
+          d.label?.toLowerCase().includes("rear")
         );
         currentDeviceId = (backCam || videoInputDevices[0]).deviceId;
 
-        await codeReader.decodeFromVideoDevice(
+        codeReader.decodeFromVideoDevice(
           currentDeviceId,
           "video",
           (result, err) => {
             if (result) {
+              codeReader.reset(); // Stop camera immediately
               handleQrResult(result.getText());
             }
           }
         );
       } catch (e) {
-        alert("Camera error");
+        console.error(e);
+        alert("Camera error. Ensure camera permissions are allowed.");
         closeScannerModal();
       }
     }
@@ -298,106 +309,37 @@
       }
     }
 
-  function handleQrResult(text) {
-  // ZXing が返す text の余計な空白や改行を除去
-  text = text.trim();
+    function handleQrResult(text) {
+      text = text.trim();
+      let store = null;
 
-  // 短いQR: "store=STO001"
-  let store = null;
+      if (text.startsWith("store=")) {
+        store = text.replace("store=", "");
+      }
 
-  // "store=STO001" の形式を手動で解析
-  if (text.startsWith("store=")) {
-    store = text.replace("store=", "");
-  }
+      if (!store) {
+        alert("Store ID not found in QR");
+        closeScannerModal();
+        return;
+      }
 
-  if (!store) {
-    alert("Store ID not found in QR");
-    closeScannerModal();
-    return;
-  }
+      closeScannerModal();
 
-  closeScannerModal();
-    // QRで読み取った store_id と一致するカードを表示
-  const card = document.querySelector(`[data-store-id="${store}"]`);
-  if (card) card.style.display = "block";
+      // Temporarily reveal card so influencer sees it loading
+      const card = document.querySelector(`[data-store-id="${store}"]`);
+      if (card) { card.style.display = "block"; }
 
-  fetch("https://script.google.com/macros/s/AKfycbyiohRpWCOGZ_cdbsRD8UBx1cnI7KdXvIjcsoGLxWMFvkjBJcwWhhDhH6qm-D39-Npb/exec"
-    + `?mode=visit&id=${influencerId}&store=${store}`)
-    .then(() => {
-      alert("Visit recorded!");
-      location.reload();
-    })
-    .catch(() => {
-      alert("Failed to record visit");
-    });
-}
+      // Record visit via API
+      fetch(`${GAS_URL}?mode=visit&id=${influencerId}&store=${store}`)
+        .then(() => {
+          alert("Visit recorded!");
+          // Reload the page data cleanly
+          loadDashboardData();
+        })
+        .catch(() => {
+          alert("Failed to record visit.");
+        });
+    }
   </script>
-
-  <? for (var i = 0; i < stores.length; i++) {
-       var s = stores[i];
-       var v = visits[s.store_id] || {};
-       var isVisited = !!v.visited_at;
-  ?>
-    <div class="store-card <?= isVisited ? 'visited' : 'not-visited' ?>"
-     data-store-id="<?= s.store_id ?>"
-     style="<?= isVisited ? '' : 'display:none;' ?>">
-
-  <div class="store-title">
-    <?= s.store_name ?>
-    <? if (s.insta_handle) { ?>
-      <span style="color:#666; font-size:14px; margin-left:6px;">
-        (<?= s.insta_handle ?>)
-      </span>
-    <? } ?>
-  </div>
-
-      <div class="status">
-        <? if (isVisited) { ?>
-          <span style="color: green;">Visited (<?= v.visited_at ?>)</span>
-        <? } else { ?>
-          <span style="color: #ff8f00;">Not visited</span>
-        <? } ?>
-      </div>
-
-     <form method="GET" action="https://script.google.com/macros/s/AKfycbyiohRpWCOGZ_cdbsRD8UBx1cnI7KdXvIjcsoGLxWMFvkjBJcwWhhDhH6qm-D39-Npb/exec">
-  <input type="hidden" name="mode" value="update">
-  <input type="hidden" name="id" value="<?= influencerId ?>">
-  <input type="hidden" name="store" value="<?= s.store_id ?>">
-  <input type="hidden" name="type" value="story">
-
-  <input
-    type="text"
-    name="url"
-    placeholder="Story post URL"
-    value="<?= v.post_url_story || '' ?>"
-    <? if (!isVisited) { ?> disabled <? } ?>
-  >
-
-  <button 
-    type="submit"
-    <? if (!isVisited) { ?> class="disabled" disabled <? } ?>
-  >
-    Submit post URL
-  </button>
-</form>
-    </div>
-  <? } ?>
-
-  <div class="footer">
-    © JAPAN Fes Influencer Program
-  </div>
-<script>
-  // visited を上、not-visited を下に並べ替える
-  window.addEventListener("DOMContentLoaded", () => {
-    const cards = Array.from(document.querySelectorAll(".store-card"));
-    const container = cards[0]?.parentNode;
-    if (!container) return;
-
-    const visited = cards.filter(c => c.classList.contains("visited"));
-    const notVisited = cards.filter(c => c.classList.contains("not-visited"));
-
-    [...visited, ...notVisited].forEach(card => container.appendChild(card));
-  });
-</script>
 </body>
 </html>
